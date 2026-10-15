@@ -1,0 +1,37 @@
+services:
+  open-webui:
+    container_name: open-webui
+    image: ghcr.io/open-webui/open-webui:main
+    restart: unless-stopped
+    environment:
+      - TZ=Etc/UTC
+      # hass-ollama lives on the homeassistant-voice stack's default network
+      # (joined below as an external network) — reachable by container name.
+      - OLLAMA_BASE_URL=http://hass-ollama:11434
+      # Needed for Settings > Account > API Keys button to appear; off by default.
+      - ENABLE_API_KEYS=true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - open-webui-data:/app/backend/data
+    ports:
+      - "3000:8080"
+    networks:
+      - hass-net
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openwebui.rule=Host(`openwebui.lab.example.com`)"
+      - "traefik.http.routers.openwebui.entrypoints=websecure"
+      - "traefik.http.routers.openwebui.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.openwebui.middlewares=internal-only@file"
+      - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
+
+networks:
+  hass-net:
+    external: true
+    name: homeassistant-voice_default
+  proxy:
+    external: true
+
+volumes:
+  open-webui-data:

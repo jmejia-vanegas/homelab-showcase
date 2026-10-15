@@ -1,0 +1,6 @@
+**/.env
+**/*.pem
+**/*.key
+**/certs/
+**/*.db
+**/__pycache__/

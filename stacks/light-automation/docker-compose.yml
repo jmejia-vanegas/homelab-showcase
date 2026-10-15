@@ -1,0 +1,16 @@
+services:
+  light-automation:
+    container_name: light-automation
+    build: .
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config.yaml:/config/config.yaml:ro
+    env_file:
+      - .env
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

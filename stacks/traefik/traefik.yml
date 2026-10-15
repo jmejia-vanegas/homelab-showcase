@@ -1,0 +1,36 @@
+log:
+  level: DEBUG
+
+accessLog: {}
+
+api:
+  dashboard: true
+  insecure: false
+
+# Port 80 is taken by another application on this host — HTTP entrypoint intentionally omitted.
+# All services use HTTPS directly. Add a web entrypoint + redirect here if another application
+# is ever moved off port 80.
+entryPoints:
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: proxy
+  file:
+    directory: /config
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@example.com
+      storage: /certs/acme.json
+      dnsChallenge:
+        provider: porkbun
+        # Use public resolvers so Traefik sees the TXT record Porkbun just created
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"

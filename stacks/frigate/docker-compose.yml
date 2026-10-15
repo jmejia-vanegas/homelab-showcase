@@ -1,0 +1,54 @@
+services:
+  frigate:
+    container_name: frigate
+    privileged: true # this may not be necessary for all setups
+    restart: unless-stopped
+    stop_grace_period: 30s # allow enough time to shut down the various services
+    image: ghcr.io/blakeblackshear/frigate:stable-tensorrt
+    deploy:    # <------------- Add this section
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+
+    shm_size: "512mb" # update for your cameras based on calculation above
+
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/config
+      - /media/labadmin/data/homelab/Frigate:/media/frigate
+      - type: tmpfs # 1GB In-memory filesystem for recording segment storage
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      # 8971 (web UI) intentionally not published — reachable only via Traefik + internal-only@file
+      # - "5000:5000" # Internal unauthenticated access. Expose carefully.
+      # 8554 (RTSP restream) intentionally not published on the host (removed 2026-10-14): it has no login, and
+      # nothing outside this container needs it — Frigate records from 127.0.0.1:8554 and Home Assistant
+      # reaches it over the Docker network as frigate:8554.
+      - "8555:8555/tcp" # WebRTC over tcp — restricted to LAN/Tailscale via DOCKER-USER iptables rules
+      - "8555:8555/udp" # WebRTC over udp — restricted to LAN/Tailscale via DOCKER-USER iptables rules
+      # 1984 (go2rtc UI/API) intentionally not published and no longer routed through Traefik — its API is
+      # unauthenticated and lists camera source URLs with credentials (route removed 2026-10-14)
+    env_file:
+      - .env
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frigate.rule=Host(`frigate.lab.example.com`)"
+      - "traefik.http.routers.frigate.entrypoints=websecure"
+      - "traefik.http.routers.frigate.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frigate.middlewares=internal-only@file"
+      - "traefik.http.routers.frigate.service=frigate"
+      - "traefik.http.services.frigate.loadbalancer.server.port=8971"
+      - "traefik.http.services.frigate.loadbalancer.server.scheme=https"
+      - "traefik.http.services.frigate.loadbalancer.serverstransport=insecureskipverify@file"
+
+networks:
+  default:
+  proxy:
+    external: true

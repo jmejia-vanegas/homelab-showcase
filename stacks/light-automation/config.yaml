@@ -1,0 +1,53 @@
+# Motion/object-triggered camera light automation.
+#
+# Listens to Frigate's MQTT events and turns on a camera's Reolink white LED
+# (floodlight) when a configured object is detected at night, then turns it
+# back off after a delay with no further matching detections.
+#
+# Add more cameras here later by adding another entry to `cameras`.
+
+mqtt:
+  host: hass-mosquitto
+  port: 1883
+  user: "{MQTT_USER}"
+  password: "{MQTT_PASSWORD}"
+
+# Used for sunset/sunrise-based night gating (not the camera's own ambient
+# day/night sensor — see light_automation.py's module docstring for why).
+location:
+  latitude: <LATITUDE>
+  longitude: <LONGITUDE>
+  timezone: Etc/UTC
+
+cameras:
+  camera_2:
+    reolink_host: 192.168.1.11
+    reolink_user: admin
+    reolink_password: "{RTSP_PASSWORD}"
+    trigger_labels:
+      - person
+      - car
+      - cat
+    night_only: true
+    off_delay_seconds: 120
+
+  camera_1:
+    reolink_host: 192.168.1.10
+    reolink_user: admin
+    reolink_password: "{RTSP_PASSWORD}"
+    trigger_labels:
+      - person
+      - cat
+    night_only: true
+    off_delay_seconds: 120
+
+  camera_4:
+    reolink_host: 192.168.1.13
+    reolink_user: admin
+    reolink_password: "{RTSP_PASSWORD}"
+    trigger_labels:
+      - person
+      - car
+      - cat
+    night_only: true
+    off_delay_seconds: 120

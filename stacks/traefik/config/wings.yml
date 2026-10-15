@@ -1,0 +1,17 @@
+http:
+  routers:
+    wings:
+      rule: "Host(`wings.lab.example.com`)"
+      entrypoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - internal-only@file
+      service: wings
+
+  services:
+    wings:
+      loadBalancer:
+        servers:
+          - url: "http://172.20.0.1:8080"

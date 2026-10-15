@@ -1,0 +1,66 @@
+services:
+  database:
+    image: mariadb:10.5
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --skip-ssl
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: panel
+      MYSQL_USER: pterodactyl
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  cache:
+    image: redis:alpine
+    restart: unless-stopped
+
+  panel:
+    image: ghcr.io/pterodactyl/panel:latest
+    restart: unless-stopped
+    depends_on:
+      - database
+      - cache
+    volumes:
+      - /srv/pterodactyl/var/:/app/var/
+      - /srv/pterodactyl/nginx/:/etc/nginx/http.d/
+      - /srv/pterodactyl/logs/:/app/storage/logs
+      - ./my.cnf:/etc/my.cnf:ro
+    environment:
+      APP_URL: https://panel.lab.example.com
+      APP_TIMEZONE: Etc/UTC
+      APP_SERVICE_AUTHOR: admin@example.com
+      MAIL_FROM: admin@example.com
+      MAIL_DRIVER: log
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_ENV: production
+      APP_ENVIRONMENT_ONLY: "false"
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_DRIVER: redis
+      REDIS_HOST: cache
+      DB_HOST: database
+      DB_PORT: "3306"
+    extra_hosts:
+      - "wings.lab.example.com:172.20.0.2"
+    networks:
+      default:
+      proxy:
+        ipv4_address: 172.20.0.10
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pterodactyl.rule=Host(`panel.lab.example.com`)"
+      - "traefik.http.routers.pterodactyl.entrypoints=websecure"
+      - "traefik.http.routers.pterodactyl.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.pterodactyl.middlewares=internal-only@file"
+      - "traefik.http.services.pterodactyl.loadbalancer.server.port=80"
+
+volumes:
+  db_data:
+
+networks:
+  default:
+  proxy:
+    external: true

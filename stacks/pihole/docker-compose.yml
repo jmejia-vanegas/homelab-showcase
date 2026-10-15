@@ -1,0 +1,13 @@
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      TZ: Etc/UTC
+      FTLCONF_webserver_port: "8081"
+    volumes:
+      - ./etc-pihole:/etc/pihole

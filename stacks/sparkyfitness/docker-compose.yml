@@ -1,0 +1,112 @@
+services:
+  sparkyfitness-db:
+    image: postgres:18.3-alpine
+    container_name: sparkyfitness-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SPARKY_FITNESS_DB_NAME:?Variable is required and must be set}
+      POSTGRES_USER: ${SPARKY_FITNESS_DB_USER:?Variable is required and must be set}
+      POSTGRES_PASSWORD: ${SPARKY_FITNESS_DB_PASSWORD:?Variable is required and must be set}
+      PUID: 1000
+      GUID: 1000
+    volumes:
+      - sparkyfitness-db-data:/var/lib/postgresql
+    networks:
+      - sparkyfitness-network
+    labels:
+      # Whole stack is excluded from Watchtower — see sparkyfitness-server's
+      # comment below for why.
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  sparkyfitness-server:
+    # Locally patched (see custom-image/) — currently 3 patches: an FDA %DV
+    # reference table for label-scan, an Ollama grammar-crash fix, and an
+    # image-downscale fix for meal-photo scanning. Built from a local-only tag
+    # (sparkyfitness_server:dv-patch), so Watchtower has nothing to pull for
+    # it anyway; the label below just makes that explicit and covers the
+    # sibling services. Does NOT auto-update — see custom-image/Dockerfile for
+    # how to rebuild against a newer upstream release, and re-check whether
+    # each patch is still needed before doing so.
+    image: sparkyfitness_server:dv-patch
+    container_name: sparkyfitness-server
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    environment:
+      # --- Database Connection ---
+      SPARKY_FITNESS_DB_HOST: sparkyfitness-db
+      SPARKY_FITNESS_DB_PORT: 5432
+      SPARKY_FITNESS_DB_NAME: ${SPARKY_FITNESS_DB_NAME:?Variable is required and must be set}
+      SPARKY_FITNESS_DB_USER: ${SPARKY_FITNESS_DB_USER:?Variable is required and must be set}
+      SPARKY_FITNESS_DB_PASSWORD: ${SPARKY_FITNESS_DB_PASSWORD:?Variable is required and must be set}
+      SPARKY_FITNESS_APP_DB_USER: ${SPARKY_FITNESS_APP_DB_USER:-sparky_app}
+      SPARKY_FITNESS_APP_DB_PASSWORD: ${SPARKY_FITNESS_APP_DB_PASSWORD:?Variable is required and must be set}
+
+      # --- Essential App Security ---
+      SPARKY_FITNESS_FRONTEND_URL: ${SPARKY_FITNESS_FRONTEND_URL:?Variable is required and must be set}
+      SPARKY_FITNESS_API_ENCRYPTION_KEY: ${SPARKY_FITNESS_API_ENCRYPTION_KEY:?Variable is required and must be set}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Variable is required and must be set}
+
+      # --- Server Runtime & Admin ---
+      NODE_ENV: production
+      TZ: ${TZ:-Etc/UTC}
+      SPARKY_FITNESS_LOG_LEVEL: ${SPARKY_FITNESS_LOG_LEVEL:-ERROR}
+      SPARKY_FITNESS_PUBLIC_API_DOCS: "false"
+      SPARKY_FITNESS_DISABLE_SIGNUP: ${SPARKY_FITNESS_DISABLE_SIGNUP:-false}
+      SPARKY_FITNESS_ADMIN_EMAIL: ${SPARKY_FITNESS_ADMIN_EMAIL:-}
+
+      # --- Network & CORS ---
+      # Behind Traefik on the LAN/Tailscale-only internal-only middleware — safe to allow private-network CORS.
+      ALLOW_PRIVATE_NETWORK_CORS: "true"
+      ALLOW_PRIVATE_NETWORK_AI: "false"
+
+      PUID: 1000
+      GUID: 1000
+    networks:
+      - sparkyfitness-network
+      - hass-ollama-network
+    depends_on:
+      - sparkyfitness-db
+    volumes:
+      - ./backup:/app/SparkyFitnessServer/backup
+      - ./uploads:/app/SparkyFitnessServer/uploads
+
+  sparkyfitness-frontend:
+    image: codewithcj/sparkyfitness:latest
+    container_name: sparkyfitness-frontend
+    restart: unless-stopped
+    environment:
+      SPARKY_FITNESS_FRONTEND_URL: ${SPARKY_FITNESS_FRONTEND_URL:?Variable is required and must be set}
+      SPARKY_FITNESS_SERVER_HOST: sparkyfitness-server
+      SPARKY_FITNESS_SERVER_PORT: 3010
+      NGINX_RATE_LIMIT: 5r/s
+      PUID: 1000
+      GUID: 1000
+    networks:
+      - sparkyfitness-network
+      - proxy
+    depends_on:
+      - sparkyfitness-server
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+      - "traefik.enable=true"
+      - "traefik.http.routers.sparkyfitness.rule=Host(`fitness.lab.example.com`)"
+      - "traefik.http.routers.sparkyfitness.entrypoints=websecure"
+      - "traefik.http.routers.sparkyfitness.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sparkyfitness.middlewares=internal-only@file"
+      - "traefik.http.services.sparkyfitness.loadbalancer.server.port=80"
+
+networks:
+  sparkyfitness-network:
+    driver: bridge
+  proxy:
+    external: true
+  # Existing Ollama instance (containers/homeassistant-voice/) — attached so
+  # sparkyfitness-server can reach it by container name for AI vision features
+  # (nutrition label scan, meal photo estimate) without exposing it on a host port.
+  hass-ollama-network:
+    name: homeassistant-voice_default
+    external: true
+
+volumes:
+  sparkyfitness-db-data:

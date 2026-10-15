@@ -1,0 +1,118 @@
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: homeassistant/home-assistant:stable
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/config
+    ports:
+      - "8123:8123"
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.lab.example.com`)"
+      - "traefik.http.routers.homeassistant.entrypoints=websecure"
+      - "traefik.http.routers.homeassistant.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.homeassistant.middlewares=internal-only@file"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+
+  whisper:
+    container_name: hass-whisper
+    # rhasspy/wyoming-whisper has no GPU/CUDA tag (checked Docker Hub 2026-08-27) —
+    # linuxserver/faster-whisper speaks the same Wyoming protocol and has a `gpu` tag.
+    image: lscr.io/linuxserver/faster-whisper:gpu
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - WHISPER_MODEL=base
+      - WHISPER_BEAM=1
+      - WHISPER_LANG=en
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./whisper-config:/config
+    ports:
+      - "10300:10300"
+    networks:
+      - default
+
+  piper:
+    container_name: hass-piper
+    image: rhasspy/wyoming-piper
+    restart: unless-stopped
+    command: --voice en_US-lessac-medium
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./piper-data:/data
+    ports:
+      - "10200:10200"
+    networks:
+      - default
+
+  openwakeword:
+    container_name: hass-openwakeword
+    image: rhasspy/wyoming-openwakeword
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "10400:10400"
+    networks:
+      - default
+
+  mosquitto:
+    container_name: hass-mosquitto
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    # No ports published — Frigate and Home Assistant both sit on the `proxy`
+    # network already and reach this by container name (hass-mosquitto:1883).
+    networks:
+      - default
+      - proxy
+
+  ollama:
+    container_name: hass-ollama
+    image: ollama/ollama
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    environment:
+      - TZ=Etc/UTC
+      - OLLAMA_KEEP_ALIVE=1h
+      - OLLAMA_CONTEXT_LENGTH=8192
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ollama-data:/root/.ollama
+    # No ports published — reachable only via container DNS (ollama:11434) on the
+    # default network, same as Home Assistant. Not exposed to LAN.
+    networks:
+      - default
+
+networks:
+  default:
+  proxy:
+    external: true
+
+volumes:
+  ollama-data:

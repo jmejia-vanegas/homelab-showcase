@@ -1,0 +1,15 @@
+http:
+  middlewares:
+    # Apply to any service that should only be reachable from LAN or Tailscale
+    internal-only:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "192.168.1.0/24"   # LAN
+          - "100.64.0.0/10"    # Tailscale
+          - "172.20.0.0/16"    # proxy Docker network (e.g. panel -> wings via Traefik)
+
+  serversTransports:
+    # Used for backends that serve their own self-signed TLS (e.g. Frigate)
+    insecureskipverify:
+      insecureSkipVerify: true

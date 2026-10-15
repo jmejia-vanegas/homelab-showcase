@@ -1,0 +1,10 @@
+{
+  "domain": "owui_jarvis_logger",
+  "name": "Open WebUI Jarvis Logger",
+  "version": "1.0.0",
+  "documentation": "https://github.com/example-user/homelab",
+  "dependencies": ["conversation", "persistent_notification"],
+  "codeowners": [],
+  "iot_class": "cloud_push",
+  "requirements": []
+}

@@ -1,0 +1,30 @@
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    env_file: .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/traefik.yml:ro
+      - ./config:/config:ro
+      - ./certs:/certs
+    networks:
+      proxy:
+        ipv4_address: 172.20.0.2
+    labels:
+      - "traefik.enable=true"
+      # Traefik dashboard — internal only
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.lab.example.com`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.tls.domains[0].main=lab.example.com"
+      - "traefik.http.routers.dashboard.tls.domains[0].sans=*.lab.example.com"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=internal-only@file"
+
+networks:
+  proxy:
+    external: true

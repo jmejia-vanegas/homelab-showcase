@@ -1,0 +1,22 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# NOTE: http: config (trusted_proxies etc.) lives in .storage/http, not here —
+# HA only migrates YAML http: config on the very first boot. Managed via
+# Settings > System > Network in the UI, or .storage/http directly. Set:
+# trusted_proxies: 172.20.0.0/16 (Traefik's proxy network), use_x_forwarded_for: true
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+owui_jarvis_logger:
+  owui_url: !secret owui_url
+  owui_api_key: !secret owui_api_key
+  ollama_url: http://hass-ollama:11434
+  ollama_model: qwen3:4b

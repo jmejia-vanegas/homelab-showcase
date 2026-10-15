@@ -1,0 +1,18 @@
+# Pi-hole v6 - DNS and DHCP excerpt (trimmed from pihole.toml; values sanitized)
+[dns]
+  upstreams = ["1.1.1.1", "1.0.0.1"]
+
+[misc]
+  # address=/ and server=/ lines only; any other lines are intentionally omitted
+  dnsmasq_lines = ["address=/lab.example.com/192.168.1.2"]
+
+[dhcp]
+  active = true
+  start = "192.168.1.10"
+  end = "192.168.1.254"
+  router = "192.168.1.1"
+  # example reservations only; the full list is intentionally omitted
+  hosts = [
+    "aa:bb:cc:dd:ee:01, 192.168.1.4, device-1, 30m",
+    "aa:bb:cc:dd:ee:02, 192.168.1.5, device-2, 30m"
+]

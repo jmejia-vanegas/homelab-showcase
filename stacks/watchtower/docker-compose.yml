@@ -1,0 +1,16 @@
+services:
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - .env
+    environment:
+      WATCHTOWER_SCHEDULE: "0 0 4 * * *"
+      TZ: Etc/UTC
+      WATCHTOWER_NOTIFICATIONS: shoutrrr
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "false"
+      DOCKER_API_VERSION: "1.45"

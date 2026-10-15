@@ -1,0 +1,12 @@
+[Unit]
+Description=Restrict Frigate RTSP/WebRTC ports to LAN + Tailscale
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/labadmin/homelab/containers/frigate/restrict-ports.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
